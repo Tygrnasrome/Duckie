@@ -9,6 +9,11 @@ import lejos.utility.Delay;
 
 
 public class Main {
+	//sensory
+	public static EV3UltrasonicSensor DS = new EV3UltrasonicSensor(SensorPort.S1);
+	static SensorModes S1 = DS;
+	static SampleProvider S1Sample = S1.getMode(0);
+	static float[] sampleS1Data = new float[S1Sample.sampleSize()];
 	//nastavime si globalni promenne
 	public static double time = 0;
 	public static double dist = 0;
@@ -140,12 +145,16 @@ public class Main {
 		Motor.D.rotate(-turnAngle);
 		cubeNum = 0;
 	}
+	public static int getDistanceValue()
+	{
+		S1Sample.fetchSample(sampleS1Data, 0);
+		return (int) (100 * sampleS1Data[0]);
 	}
 }
 
 //TODO
 /*
- * na zaklade vzdalenosti meneni rychlosti
+ * na zaklade vzdalenosti menit rychlosti
  * na zaklade vzdalenosti chytani kostek
  * na zaklade vzdalenosti otocka
  * trackovani casu a vzdalenosti
