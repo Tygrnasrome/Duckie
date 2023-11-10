@@ -55,10 +55,13 @@ public class Main {
 		Motor.D.setSpeed(velocity);
 	}
 
-	public static void turnLeft(int backupLenght)
+	private static int turnAngle = 120;
+	public static void turnLeft()
 	{
-		Motor.A.forward();
-		Motor.D.forward();
+		Motor.A.rotate(turnAngle, true);
+		Motor.D.rotate(-turnAngle);
+		cubeNum = 0;
+	}
 	}
 }
 
