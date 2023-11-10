@@ -26,15 +26,66 @@ public class Main {
 		int fastSpeed = 200;
 		int slowSpeed = 50;
 
-		/*	dva sety vzdalenosti
-		 * 	vybereme si pouze jeden a ten ulozime do promenne keepDist
-		 * 	hodnoty pouzivame kdyz udrzujeme vzdalenost robota od steny
-		 * */
-		double distA[] = {0.14, 0.28, 0.14, 0.28};
-		double distB[] = {0.14, 0.28, 0.14, 0.28};
+		double slowZone = 0.1; //delka zony zpomanleni pred a za kostkou
+		double turnZone = 0.1;
 
-		//keepDist obsahuje pouzivanou sadu vzdalenosti kostek od steny
-		double keepDist[] = distA;
+		/*	dva sety vzdalenosti a delky
+		 * 	vybereme si pouze jeden a ten ulozime do promenne keepDist/walllengt
+		 * 	hodnoty v metrech
+		 *  hodnoty walldist pouzivame kdyz udrzujeme vzdalenost robota od steny
+		 *  hodnoty wallLenght pouzivame kdyz potrebujeme delku steny
+		 * */
+		double wallDistA[] = {0.14, 0.28, 0.14, 0.28};
+		double wallDistB[] = {0.14, 0.28, 0.14, 0.28};
+
+		double keepWallDist[] = wallDistA;
+
+		double wallLenghtA[] = {1.68, 1.68, 2.52, 1.68};
+		double wallLenghtB[] = {1.68, 1.68, 2.52, 1.68};
+
+		double wallLenght[] = wallLenghtA;
+		/*
+		 * Set vzdáleností krychlí vždy v dané vzdálenosti je krychle
+		 * pøed krychlí robot zpomalí a pøipraví se na zvedání krychle
+		 * v metrech jsou krychle za sebou {0, 0.28, 0.56, 0.84}
+		 * */
+		double cubeDist[] = {0, 0.28, 0.56, 0.84};
+
+		resetDist();
+        go();
+
+        // Main loop
+        while (!Button.ESCAPE.isDown()) {
+
+        	//update hodnot time a dist
+        	update();
+
+            System.out.println("Time Elapsed: " + time + " ms");
+            System.out.println("Distance Traveled: " + dist + " m");
+            System.out.println("Nearest wall: " + wallDist + " m");
+
+            //pøepínání rychlosti podle vzdálenosti od kostky
+            double curretntCubeDist = cubeDist[cubeNum] - (dist + slowZone/2.0);
+            if(Math.abs(curretntCubeDist) < slowZone/2)
+            {
+            	//robot je poblíž kostky
+            	//setSpeed(slowSpeed);
+            	//cubeLift();
+            }else
+            	setSpeed(fastSpeed);
+
+            //pokud je robot na konci steny
+            if(wallLenght[wallNum] - dist < turnZone)
+            {
+            	setSpeed(slowSpeed);
+            	turnLeft();
+            }
+            Delay.msDelay(100);
+        }
+
+        // Stop motors on exit
+        stop();
+	}
 
 
 	}
