@@ -14,6 +14,7 @@ public class Main {
 	static SensorModes S1 = DS;
 	static SampleProvider S1Sample = S1.getMode(0);
 	static float[] sampleS1Data = new float[S1Sample.sampleSize()];
+
 	//nastavime si globalni promenne
 	public static double time = 0;
 	public static double dist = 0;
@@ -92,7 +93,15 @@ public class Main {
         stop();
 	}
 
+	public static void cubeLift()
+	{
 
+		// zajistuje zvedání krychle
+		if(Motor.C.isStalled())
+		{
+			Motor.C.rotate(300);
+			Motor.C.rotate(-300);
+		}
 	}
 
 	public static void update()
