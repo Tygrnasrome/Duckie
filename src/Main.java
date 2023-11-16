@@ -4,7 +4,9 @@ import lejos.hardware.port.MotorPort;
 import lejos.hardware.port.SensorPort;
 import lejos.hardware.sensor.EV3UltrasonicSensor;
 import lejos.hardware.sensor.SensorModes;
+import lejos.robotics.RegulatedMotor;
 import lejos.robotics.SampleProvider;
+import lejos.hardware.BrickFinder;
 import lejos.hardware.Button;
 import lejos.hardware.Sound;
 import lejos.hardware.motor.Motor;
@@ -12,10 +14,11 @@ import lejos.utility.Delay;
 
 
 public class Main {
-	//sensory
-	public static EV3UltrasonicSensor DS = new EV3UltrasonicSensor(SensorPort.S4);
+	//motory
 	public static EV3LargeRegulatedMotor MotorA = new EV3LargeRegulatedMotor(MotorPort.A);
 	public static EV3LargeRegulatedMotor MotorD = new EV3LargeRegulatedMotor(MotorPort.D);
+	//sensory
+	public static EV3UltrasonicSensor DS = new EV3UltrasonicSensor(SensorPort.S4);
 	static SensorModes S4 = DS;
 	static SampleProvider S4Sample = S4.getMode(0);
 	static float[] sampleS4Data = new float[S4Sample.sampleSize()];
@@ -27,17 +30,23 @@ public class Main {
 	public static int initialDistLeft = MotorA.getTachoCount();
 	public static int initialDistRight = MotorD.getTachoCount();
 	public static double r = 56;
+	public static double wheelDist = 85;
 	public static double wallDist;
 	public static int cubeNum = 0;
 	public static int wallNum = 0;
+	public static int currentSpeed;
+
+	public static double keepWallDist[];
+	public static double turnR[]; // polomer zatacky mm
+
 	public static void main(String[] args) {
 		//predpokladejme, ze robot zacina pred modrou krychli
 
 		//nastavime si local main promenne
 		int fastSpeed = 200;
-		int slowSpeed = 50;
+		int slowSpeed = 100;
 
-		double slowZone = 50; //delka zony zpomanleni pred a za kostkou
+		double slowZone = 25; //delka zony zpomanleni pred a za kostkou
 
 		/*	dva sety vzdalenosti a delky
 		 * 	vybereme si pouze jeden a ten ulozime do promenne keepDist/walllengt
@@ -45,12 +54,12 @@ public class Main {
 		 *  hodnoty walldist pouzivame kdyz udrzujeme vzdalenost robota od steny
 		 *  hodnoty wallLenght pouzivame kdyz potrebujeme delku steny
 		 * */
-		//double wallDistA[] = {1400, 2800, 1400, 2800};
-		//double wallDistB[] = {1400, 2800, 1400, 2800};
+		double wallDistA[] = {67, 228, 67, 207};
+		double wallDistB[] = {1400, 2800, 1400, 2800};
 
-		//double keepWallDist[] = wallDistA;
+		keepWallDist = wallDistA;
 
-		double wallLenghtA[] = {1260, 1120, 1680, 1120};
+		double wallLenghtA[] = {1260, 840, 1680, 1120};
 		//double wallLenghtB[] = {1260, 1120, 1680, 1120};
 
 		double wallLenght[] = wallLenghtA;
@@ -59,68 +68,78 @@ public class Main {
 		 * pøed krychlí robot zpomalí a pøipraví se na zvedání krychle
 		 * v metrech jsou krychle za sebou {0, 0.28, 0.56, 0.84} v m
 		 * */
-		double cubeDist[] = {0, 280, 560, 840};
-		double wallStCubeDisp[] = {0, 280, 420, 280};
+		double cubeDist[] = {0, 280, 560, 840, 100000000};
+		double wallFirstCubeDisp[] = {0, 0, 280, 280};
 		double curretntCubeDist;
 
+		double turnRA[] = {280, 280, 280};
+		turnR = turnRA;
 		resetDist();
 		setSpeed(fastSpeed);
 		go();
 
 		// Main loop
-		while (!Button.ESCAPE.isDown()) {
+		while (!Button.ESCAPE.isDown() || wallNum == 3) {
 
 			//update hodnot time a dist
 			update();
 
-			/*        	System.out.println("Time Elapsed: " + time + " ms");
-            System.out.println("Distance Traveled: " + dist + " mm");*/
-
+			speedCorrection();
 
 			//pøepínání rychlosti podle vzdálenosti od kostky
-			curretntCubeDist = (cubeDist[cubeNum] + wallStCubeDisp[wallNum]) - (dist + slowZone/2.0);
-            if(Math.abs(curretntCubeDist) < slowZone/2)
-            {
-            	if (MotorA.getSpeed() != slowSpeed) {
-                	//	robot vstoupil do kostkové zóny
-                	System.out.println("--------------- CUBE " + cubeNum + " ZONE ENTERED ------------------");
-            		setSpeed(slowSpeed);
-                	go();
-                	Sound.beep();
-                	//cubeLift();
+			curretntCubeDist = (cubeDist[cubeNum] + wallFirstCubeDisp[wallNum]) - (dist + slowZone/2.0);
+			if(Math.abs(curretntCubeDist) < (slowZone))
+			{
+				if (currentSpeed != slowSpeed) {
+					//	robot vstoupil do kostkové zóny
+					System.out.println("--------------------------------- CUBE " + cubeNum + " ZONE ENTERED --------------------------------");
+					setSpeed(slowSpeed);
+					go();
+					//cubeLift();
 				}
-            	System.out.println("--------------- CUBE " + cubeNum + " ZONE ------------------");
-            }else if(MotorA.getSpeed() != fastSpeed)
-            {
-            	System.out.println("--------------- CUBE " + cubeNum + " ZONE LEFT ------------------");
-            	setSpeed(fastSpeed);
-            	go();
-            	cubeNum++;
-            }
+				System.out.println("--------------- CUBE " + cubeNum + " ZONE ------------------");
+			}else if(currentSpeed != fastSpeed)
+			{
+				System.out.println("--------------------------------- CUBE " + cubeNum + " ZONE LEFT --------------------------------");
+				setSpeed(fastSpeed);
+				go();
+				cubeNum++;
+			}
 
-            System.out.println("Dist: " + dist + " mm");
-            System.out.println("wallDist: " + wallDist + " mm");
+			speedCorrection();
+
+			System.out.println("Dist: " + dist + " mm");
+			System.out.println("wallDist: " + wallDist + " mm");
 			//pokud je robot na konci steny
 			if(wallLenght[wallNum] - dist < 1)
 			{
-				System.out.println("--------------TURNING LEFT----------------");
-				System.out.println("MotorA speed:" + MotorA.getSpeed() + " degrees");
-				System.out.println("MotorD speed:" + MotorD.getSpeed() + " degrees");
+				System.out.println("--------------------------------TURNING LEFT---------------------------------------");
 				System.out.println("Distance Traveled before turning: " + dist + " mm");
+				System.out.println("A: " + MotorA.getTachoCount() + " mm");
+				System.out.println("D: " + MotorD.getTachoCount() + " mm");
+
 				turnLeft();
+				setSpeed(fastSpeed);
+				speedCorrection();
 				update();
 				System.out.println("Distance Traveled after turning: " + dist + " mm");
-				System.out.println("MotorA speed:" + MotorA.getSpeed() + " degrees");
-				System.out.println("MotorD speed:" + MotorD.getSpeed() + " degrees");
-				resetDist();
-				setSpeed(fastSpeed);
-				go();
 
+				resetDist();
+				go();
 			}
 			Delay.msDelay(100);
 		}
 
 		stop();
+	}
+
+	public static void speedCorrection()
+	{
+		double error = getDistanceValue() - keepWallDist[wallNum];
+		double correction = -error * 0.5f;
+
+		MotorA.setSpeed((int) (currentSpeed + correction));
+		MotorD.setSpeed((int) (currentSpeed - correction));
 	}
 
 	public static void cubeLift()
@@ -178,36 +197,32 @@ public class Main {
 
 	public static void stop()
 	{
-		MotorA.stop();
+		MotorA.stop(true);
 		MotorD.stop();
 	}
 
 	public static void setSpeed(int velocity)
 	{
-		stop();
+		currentSpeed = velocity;
 		MotorA.setSpeed(velocity);
 		MotorD.setSpeed(velocity);
 	}
 
-	public static double turnR = 140; // polomer zatacky mm
 	public static void turnLeft()
 	{
-		int initSpeedA = MotorA.getSpeed(); // promenne pro zachování pùvodní rychlosti po zatáèce
-		int initSpeedD = MotorD.getSpeed();
+		int robotR = 180;
 
-		double disA = ((turnR - 85) * Math.PI * 2)/4;
-		double disB = ((turnR + 85) * Math.PI * 2)/4;
+		double disA = ((turnR[wallNum] - robotR/2.0) * Math.PI)/2;
+		double disB = ((turnR[wallNum] + robotR/2.0) * Math.PI)/2;
 
 		stop();
-		MotorD.setSpeed((int) Math.abs(disA/5));
-		MotorA.setSpeed((int) Math.abs(disB/5));
+		MotorD.setSpeed((int) Math.abs(disA/3));
+		MotorA.setSpeed((int) Math.abs(disB/3));
 		MotorD.rotate((int) mmToDeg(disA), true);
 		MotorA.rotate((int) mmToDeg(disB));
 		cubeNum = 0;
 		wallNum++;
 		stop();
-		MotorA.setSpeed(initSpeedA);
-		MotorD.setSpeed(initSpeedD);
 	}
 	public static int getDistanceValue()
 	{
