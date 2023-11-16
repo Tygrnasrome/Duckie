@@ -36,17 +36,23 @@ public class Main {
 	public static int wallNum = 0;
 	public static int currentSpeed;
 
+	public static double cubeDist[] = {0, 280, 560, 840, 100000000};
+	public static double wallFirstCubeDisp[] = {0, 0, 280, 280};
 	public static double keepWallDist[];
 	public static double turnR[]; // polomer zatacky mm
+
+	public static int fastSpeed = 200;
+	public static int slowSpeed = 100;
+
+	public static double slowZone = 25; //delka zony zpomanleni pred a za kostkou
 
 	public static void main(String[] args) {
 		//predpokladejme, ze robot zacina pred modrou krychli
 
 		//nastavime si local main promenne
-		int fastSpeed = 200;
-		int slowSpeed = 100;
 
-		double slowZone = 25; //delka zony zpomanleni pred a za kostkou
+
+
 
 		/*	dva sety vzdalenosti a delky
 		 * 	vybereme si pouze jeden a ten ulozime do promenne keepDist/walllengt
@@ -68,9 +74,9 @@ public class Main {
 		 * pøed krychlí robot zpomalí a pøipraví se na zvedání krychle
 		 * v metrech jsou krychle za sebou {0, 0.28, 0.56, 0.84} v m
 		 * */
-		double cubeDist[] = {0, 280, 560, 840, 100000000};
-		double wallFirstCubeDisp[] = {0, 0, 280, 280};
-		double curretntCubeDist;
+
+
+
 
 		double turnRA[] = {280, 280, 280};
 		turnR = turnRA;
@@ -83,54 +89,56 @@ public class Main {
 
 			//update hodnot time a dist
 			update();
-
-			speedCorrection();
-
-			//pøepínání rychlosti podle vzdálenosti od kostky
-			curretntCubeDist = (cubeDist[cubeNum] + wallFirstCubeDisp[wallNum]) - (dist + slowZone/2.0);
-			if(Math.abs(curretntCubeDist) < (slowZone))
+			if(!isTurning)
 			{
-				if (currentSpeed != slowSpeed) {
-					//	robot vstoupil do kostkové zóny
-					System.out.println("--------------------------------- CUBE " + cubeNum + " ZONE ENTERED --------------------------------");
-					setSpeed(slowSpeed);
-					go();
-					//cubeLift();
-				}
-				System.out.println("--------------- CUBE " + cubeNum + " ZONE ------------------");
-			}else if(currentSpeed != fastSpeed)
-			{
-				System.out.println("--------------------------------- CUBE " + cubeNum + " ZONE LEFT --------------------------------");
-				setSpeed(fastSpeed);
-				go();
-				cubeNum++;
-			}
-
-			speedCorrection();
-
-			System.out.println("Dist: " + dist + " mm");
-			System.out.println("wallDist: " + wallDist + " mm");
-			//pokud je robot na konci steny
-			if(wallLenght[wallNum] - dist < 1)
-			{
-				System.out.println("--------------------------------TURNING LEFT---------------------------------------");
-				System.out.println("Distance Traveled before turning: " + dist + " mm");
-				System.out.println("A: " + MotorA.getTachoCount() + " mm");
-				System.out.println("D: " + MotorD.getTachoCount() + " mm");
-
-				turnLeft();
-				setSpeed(fastSpeed);
+				speedLogic();
 				speedCorrection();
-				update();
-				System.out.println("Distance Traveled after turning: " + dist + " mm");
 
-				resetDist();
-				go();
+				System.out.println("Dist: " + dist + " mm");
+				System.out.println("wallDist: " + wallDist + " mm");
+
+				//pokud je robot na konci steny
+				if(wallLenght[wallNum] - dist < 1)
+				{
+					System.out.println("--------------------------------TURNING LEFT---------------------------------------");
+					System.out.println("Distance Traveled before turning: " + dist + " mm");
+					System.out.println("A: " + MotorA.getTachoCount() + " mm");
+					System.out.println("D: " + MotorD.getTachoCount() + " mm");
+
+					turnLeft();
+				}
+			}else
+			{
+				turningLogic();
 			}
-			Delay.msDelay(100);
+			Delay.msDelay(10);
 		}
 
 		stop();
+	}
+
+	public static void speedLogic()
+	{
+		double curretntCubeDist;
+		//pøepínání rychlosti podle vzdálenosti od kostky
+		curretntCubeDist = (cubeDist[cubeNum] + wallFirstCubeDisp[wallNum]) - (dist + slowZone/2.0);
+		if(Math.abs(curretntCubeDist) < (slowZone))
+		{
+			if (currentSpeed != slowSpeed) {
+				//	robot vstoupil do kostkové zóny
+				System.out.println("--------------------------------- CUBE " + cubeNum + " ZONE ENTERED --------------------------------");
+				setSpeed(slowSpeed);
+				go();
+				//cubeLift();
+			}
+			System.out.println("--------------- CUBE " + cubeNum + " ZONE ------------------");
+		}else if(currentSpeed != fastSpeed)
+		{
+			System.out.println("--------------------------------- CUBE " + cubeNum + " ZONE LEFT --------------------------------");
+			setSpeed(fastSpeed);
+			go();
+			cubeNum++;
+		}
 	}
 
 	public static void speedCorrection()
@@ -207,22 +215,44 @@ public class Main {
 		MotorA.setSpeed(velocity);
 		MotorD.setSpeed(velocity);
 	}
-
+	public static int robotR = 180;
+	public static double initATacho;
+	public static double initDTacho;
+	public static boolean isTurning = false;
+	public static double ATurnDist;
+	public static double DTurnDist;
+	public static double ATurnTacho;
+	public static double DTurnTacho;
 	public static void turnLeft()
 	{
-		int robotR = 180;
+		initATacho = MotorA.getTachoCount();
+		initDTacho = MotorD.getTachoCount();
 
-		double disA = ((turnR[wallNum] - robotR/2.0) * Math.PI)/2;
-		double disB = ((turnR[wallNum] + robotR/2.0) * Math.PI)/2;
+		ATurnDist = ((turnR[wallNum] + robotR/2.0) * Math.PI)/2;
+		DTurnDist = ((turnR[wallNum] - robotR/2.0) * Math.PI)/2;
 
-		stop();
-		MotorD.setSpeed((int) Math.abs(disA/3));
-		MotorA.setSpeed((int) Math.abs(disB/3));
-		MotorD.rotate((int) mmToDeg(disA), true);
-		MotorA.rotate((int) mmToDeg(disB));
-		cubeNum = 0;
-		wallNum++;
-		stop();
+		MotorD.setSpeed((int) Math.abs(DTurnDist/3));
+		MotorA.setSpeed((int) Math.abs(ATurnDist/3));
+
+		ATurnTacho = mmToDeg(ATurnDist);
+		DTurnTacho = mmToDeg(DTurnDist);
+
+		isTurning = true;
+	}
+
+	public static void turningLogic()
+	{
+		double currentTurnTachoA = MotorA.getTachoCount() - initATacho;
+		double currentTurnTachoD = MotorD.getTachoCount() - initDTacho;
+		System.out.println("CurrentATurnTacho: " + currentTurnTachoA);
+		System.out.println("CurrentDTurnTacho: " + currentTurnTachoD);
+		if(currentTurnTachoD >= DTurnTacho/* && currentTurnTachoD >= DTurnTacho*/)
+		{
+			isTurning = false;
+			resetDist();
+			wallNum++;
+			cubeNum = 0;
+		}
 	}
 	public static int getDistanceValue()
 	{
